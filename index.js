@@ -10,8 +10,7 @@ var url           = require('url'),
  */
 var AUTH_TYPE = {
     BOUNCE          : 0,
-    BOUNCE_REDIRECT : 1,
-    BLOCK           : 2
+    BLOCK           : 1
 };
 
 /**
@@ -165,7 +164,6 @@ function CASAuthentication(options) {
 
     // Bind the prototype routing methods to this instance of CASAuthentication.
     this.bounce          = this.bounce.bind(this);
-    this.bounce_redirect = this.bounce_redirect.bind(this);
     this.block           = this.block.bind(this);
     this.logout          = this.logout.bind(this);
 }
@@ -181,16 +179,6 @@ CASAuthentication.prototype.bounce = function(req, res, next) {
     this._handle(req, res, next, AUTH_TYPE.BOUNCE);
 };
 
-/**
- * Bounces a request with CAS authentication. If the user's session is not
- * already validated with CAS, their request will be redirected to the CAS
- * login page.
- */
-CASAuthentication.prototype.bounce_redirect = function(req, res, next) {
-
-    // Handle the request with the bounce authorization type.
-    this._handle(req, res, next, AUTH_TYPE.BOUNCE_REDIRECT);
-};
 
 /**
  * Blocks a request with CAS authentication. If the user's session is not
@@ -209,14 +197,7 @@ CASAuthentication.prototype._handle = function(req, res, next, authType) {
 
     // If the session has been validated with CAS, no action is required.
     if (req.session[ this.session_name ]) {
-        // If this is a bounce redirect, redirect the authenticated user.
-        if (authType === AUTH_TYPE.BOUNCE_REDIRECT) {
-            res.redirect(req.session.cas_return_to);
-        }
-        // Otherwise, allow them through to their request.
-        else {
             next();
-        }
     }
     // If dev mode is active, set the CAS user to the specified dev user.
     else if (this.is_dev_mode) {
@@ -242,10 +223,6 @@ CASAuthentication.prototype._handle = function(req, res, next, authType) {
  * Redirects the client to the CAS login.
  */
 CASAuthentication.prototype._login = function(req, res, next) {
-
-    // Save the return URL in the session. If an explicit return URL is set as a
-    // query parameter, use that. Otherwise, just use the URL from the request.
-    req.session.cas_return_to = req.query.returnTo || url.parse(req.url).path;
 
     // Set up the query parameters.
     var query = {
@@ -352,7 +329,7 @@ CASAuthentication.prototype._handleTicket = function(req, res, next) {
                     if (this.session_info) {
                         req.session[ this.session_info ] = attributes || {};
                     }
-                    res.redirect(req.session.cas_return_to);
+                    next();
                 }
             }.bind(this));
         }.bind(this));
